@@ -1,83 +1,135 @@
-// FamPilot data model — mirrors the PRD (families, members, children, events, tasks, reminders, invites).
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+// FamPilot data model — families, members, children, events, tasks, reminders, invites.
+generator client {
+  provider = "prisma-client-js"
+}
 
-enum MemberRole     { parent caregiver admin }
-enum EventType      { school health activity social other }
-enum EventStatus    { draft confirmed cancelled }
-enum EventSource    { manual ai_capture assistant }
-enum TaskStatus     { todo doing done }
-enum Recurrence     { none daily weekly }
-enum ReminderChannel{ push email }
-enum ReminderState  { scheduled sent dismissed snoozed }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MemberRole {
+  parent
+  caregiver
+  admin
+}
+
+enum EventType {
+  school
+  health
+  activity
+  social
+  other
+}
+
+enum EventStatus {
+  draft
+  confirmed
+  cancelled
+}
+
+enum EventSource {
+  manual
+  ai_capture
+  assistant
+}
+
+enum TaskStatus {
+  todo
+  doing
+  done
+}
+
+enum Recurrence {
+  none
+  daily
+  weekly
+}
+
+enum ReminderChannel {
+  push
+  email
+}
+
+enum ReminderState {
+  scheduled
+  sent
+  dismissed
+  snoozed
+}
+
+enum ConnectorType {
+  gmail
+  whatsapp
+}
 
 model Family {
-  id        String   @id
-  name      String
-  timezone  String   @default("UTC")
-  locale    String   @default("en")
-  createdAt DateTime @default(now())
-  users     User[]
-  children  Child[]
-  events    Event[]
-  tasks     Task[]
-  invites   Invite[]
+  id         String      @id
+  name       String
+  timezone   String      @default("UTC")
+  locale     String      @default("en")
+  createdAt  DateTime    @default(now())
+  users      User[]
+  children   Child[]
+  events     Event[]
+  tasks      Task[]
+  invites    Invite[]
   connectors Connector[]
 }
 
 model User {
-  id            String      @id
+  id            String     @id
   familyId      String
-  family        Family      @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  family        Family     @relation(fields: [familyId], references: [id], onDelete: Cascade)
   name          String
-  email         String?     @unique
+  email         String?    @unique
   phone         String?
-  role          MemberRole  @default(parent)
+  role          MemberRole @default(parent)
   color         String?
   avatarUrl     String?
   pushToken     String?
   passwordHash  String?
-  createdAt     DateTime    @default(now())
-  ownedEvents   Event[]     @relation("owner")
-  assignedTasks Task[]      @relation("assignee")
+  createdAt     DateTime   @default(now())
+  ownedEvents   Event[]    @relation("owner")
+  assignedTasks Task[]     @relation("assignee")
 
   @@index([familyId])
 }
 
 model Child {
-  id        String   @id
+  id        String    @id
   familyId  String
-  family    Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  family    Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
   name      String
   dob       DateTime?
   school    String?
   notes     String?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   events    Event[]
 
   @@index([familyId])
 }
 
 model Event {
-  id                String       @id
+  id                String      @id
   familyId          String
-  family            Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  family            Family      @relation(fields: [familyId], references: [id], onDelete: Cascade)
   title             String
   description       String?
   startTime         DateTime
   endTime           DateTime?
-  allDay            Boolean      @default(false)
+  allDay            Boolean     @default(false)
   location          String?
-  type              EventType    @default(other)
-  recur             Recurrence   @default(none)
+  type              EventType   @default(other)
+  recur             Recurrence  @default(none)
   childId           String?
-  child             Child?       @relation(fields: [childId], references: [id], onDelete: SetNull)
+  child             Child?      @relation(fields: [childId], references: [id], onDelete: SetNull)
   ownerId           String?
-  owner             User?        @relation("owner", fields: [ownerId], references: [id], onDelete: SetNull)
-  status            EventStatus  @default(confirmed)
-  source            EventSource  @default(manual)
+  owner             User?       @relation("owner", fields: [ownerId], references: [id], onDelete: SetNull)
+  status            EventStatus @default(confirmed)
+  source            EventSource @default(manual)
   reminderOffsetMin Int?
-  createdAt         DateTime     @default(now())
+  createdAt         DateTime    @default(now())
   reminders         Reminder[]
 
   @@index([familyId, startTime])
@@ -139,8 +191,6 @@ model Invite {
 
   @@index([familyId])
 }
-
-enum ConnectorType { gmail whatsapp }
 
 model Connector {
   id           String        @id
