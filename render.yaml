@@ -1,0 +1,55 @@
+# Render Blueprint — deploys API + worker + Postgres + Redis(KeyValue) together.
+# Dashboard: New → Blueprint → connect this repo → Apply.
+databases:
+  - name: fampilot-db
+    plan: free
+    databaseName: fampilot
+    user: fampilot
+
+services:
+  - type: keyvalue          # Render's managed Redis
+    name: fampilot-redis
+    plan: free
+    ipAllowList: []
+
+  - type: web
+    name: fampilot-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: fampilot-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: fampilot-redis, property: connectionString }
+      - key: JWT_SECRET
+        generateValue: true
+      - key: WEB_ORIGIN
+        value: "*"
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-6
+      - key: ANTHROPIC_API_KEY
+        sync: false           # set in dashboard (optional)
+      - key: FCM_SERVER_KEY
+        sync: false           # set in dashboard (optional)
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false           # https://<api-url>/api/v1/connectors/gmail/callback
+      - key: APP_INVITE_BASE_URL
+        sync: false
+
+  - type: worker
+    name: fampilot-worker
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerCommand: node dist/worker.js
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: fampilot-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: fampilot-redis, property: connectionString }
