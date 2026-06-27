@@ -1,3 +1,4 @@
+// force rebuild 2026-06-27
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
