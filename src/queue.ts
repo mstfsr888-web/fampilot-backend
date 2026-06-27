@@ -6,15 +6,15 @@ const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 export const connection = new IORedis(REDIS_URL, {
   // BullMQ requires this to be null.
   maxRetriesPerRequest: null,
-  // Railway's private network hostnames (*.railway.internal) resolve over IPv6.
-  // family: 0 enables dual-stack DNS lookup (IPv4 + IPv6) so ioredis can connect.
-  // NOTE: setting it here is reliable; the "?family=0" URL trick is NOT.
+  // Railway's private network (*.railway.internal) resolves over IPv6.
+  // family: 0 enables dual-stack DNS lookup so ioredis can connect.
   family: 0,
+  // Do NOT open the socket at import time. Connect only on first use.
+  // This keeps app bootstrap (and /api/v1/health) fully independent of Redis.
+  lazyConnect: true,
 });
 
-// Without an 'error' listener, ioredis prints "[ioredis] Unhandled error event"
-// on every failed connection attempt and floods the logs. Handle it so the logs
-// stay readable and the API can still boot and serve /api/v1/health.
+// Prevent ioredis from spamming "[ioredis] Unhandled error event" and keep logs clean.
 connection.on('error', (err) => {
   // eslint-disable-next-line no-console
   console.error('[redis]', err.message);
