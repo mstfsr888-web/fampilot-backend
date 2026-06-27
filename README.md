@@ -2,7 +2,7 @@
 
 > NestJS + PostgreSQL (Prisma) + Redis (BullMQ). Bu, FamPilot uygulamasının arka uç iskeletidir:
 > kimlik doğrulama, aile/üyeler, **gerçek davet akışı**, etkinlikler, görevler (tekrar dahil),
-> hatırlatmalar (worker + push) ve AI yakalama/asistan + sorumlu önerisi.
+> hatırlatmalar (worker + push) ve AI yakalama/asistan + sorumlu  önerisi.
 
 > **Yayına almak (deploy) için:** ayrıntılı adım adım rehber `DEPLOY.md` dosyasında (Railway / Render).
 
