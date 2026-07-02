@@ -7,15 +7,14 @@ COPY prisma ./prisma
 RUN npm install
 
 COPY . .
-RUN npm run build
+# Clean any leaked build artifacts, then build and PROVE dist/main.js exists.
+# If it does not, the BUILD fails right here with a visible error instead of
+# a silent hang at runtime.
+RUN rm -rf dist && npm run build && ls -la dist && test -f dist/main.js
 
 ENV NODE_ENV=production
 ENV CHECKPOINT_DISABLE=1
 ENV PRISMA_HIDE_UPDATE_MESSAGE=1
 EXPOSE 3000
 
-# NOTE: prisma db push was REMOVED from the start command on purpose.
-# It was hanging at container start and blocking node from ever launching.
-# The database schema is already in sync; run schema pushes as a one-off
-# job (e.g. `npx prisma db push` in a shell) when the schema actually changes.
-CMD ["sh","-c","echo '[cmd] image v6: starting node directly (no prisma at runtime)' && node dist/main.js"]
+CMD ["sh","-c","echo '[cmd] image v9' && ls dist | head -30 && node dist/main.js; echo \"[cmd] node exited with code $?\""]
