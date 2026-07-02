@@ -1,4 +1,4 @@
-// force rebuild 2026-07-02-v4 (deploy trigger 2)
+// force rebuild 2026-07-02-v5 (decisive trigger after source fix)
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
