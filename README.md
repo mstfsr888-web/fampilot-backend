@@ -13,7 +13,7 @@ cp .env.example .env          # değerleri doldurun
 docker compose up -d          # postgres + redis
 npm install
 npm run prisma:generate
-npm run prisma:migrate        # tabloları oluşturur (init migration)
+npm run prisma:migrate        # tabloları  oluşturur (init migration)
 npm run seed                  # (opsiyonel) demo aile: ayse@example.com / password
 
 # 1. terminal — API
