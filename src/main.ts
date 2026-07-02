@@ -1,4 +1,4 @@
-// force rebuild 2026-07-02-v5 (decisive trigger after source fix)
+// force rebuild 2026-07-02-v7 (deploy railway.json v6 startCommand)
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
