@@ -10,11 +10,12 @@ COPY . .
 RUN npm run build
 
 ENV NODE_ENV=production
-# Disable Prisma's update check / telemetry: the outbound checkpoint request can
-# hang in some container networks, preventing the CLI process from ever exiting,
-# which blocks the "&& node dist/main.js" step and kills the healthcheck.
 ENV CHECKPOINT_DISABLE=1
 ENV PRISMA_HIDE_UPDATE_MESSAGE=1
 EXPOSE 3000
 
-CMD ["sh","-c","echo '[cmd] container start (image v5)' && npx prisma db push --skip-generate && echo '[cmd] prisma done, launching node' && node dist/main.js"]
+# NOTE: prisma db push was REMOVED from the start command on purpose.
+# It was hanging at container start and blocking node from ever launching.
+# The database schema is already in sync; run schema pushes as a one-off
+# job (e.g. `npx prisma db push` in a shell) when the schema actually changes.
+CMD ["sh","-c","echo '[cmd] image v6: starting node directly (no prisma at runtime)' && node dist/main.js"]
