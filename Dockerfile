@@ -7,11 +7,11 @@ COPY prisma ./prisma
 RUN npm install
 
 COPY . .
-RUN rm -rf dist && npm run build && ls -la dist && test -f dist/main.js
+RUN rm -rf dist && npm run build && test -f dist/main.js
 
 ENV NODE_ENV=production
 ENV CHECKPOINT_DISABLE=1
 ENV PRISMA_HIDE_UPDATE_MESSAGE=1
 EXPOSE 3000
 
-CMD ["node", "scripts/diag.js"]
+CMD ["node", "dist/main.js"]
