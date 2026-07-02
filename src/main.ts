@@ -1,4 +1,4 @@
-// force rebuild 2026-06-27
+// force rebuild 2026-06-28-v2 (cache bust)
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
