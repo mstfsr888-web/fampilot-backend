@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": { "builder": "DOCKERFILE", "dockerfilePath": "Dockerfile" },
   "deploy": {
-    "startCommand": "echo '[cmd] image v9' && ls dist | head -30 && node dist/main.js; echo \"[cmd] node exited with code $?\"",
+    "startCommand": "node scripts/diag.js",
     "restartPolicyType": "ON_FAILURE"
   }
 }
