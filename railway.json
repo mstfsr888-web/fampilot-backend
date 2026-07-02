@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": { "builder": "DOCKERFILE", "dockerfilePath": "Dockerfile" },
   "deploy": {
-    "startCommand": "echo '[cmd] image v6: starting node directly (no prisma at runtime)' && node dist/main.js",
+    "startCommand": "echo '[dbg] v7 diagnostics' && node -e \"console.log('[dbg] node prints OK:', process.version)\" && echo '[dbg] dist listing:' && ls dist && echo '[dbg] boot-marker count in dist/main.js:' && grep -c 'boot' dist/main.js; echo '[dbg] grep exit above; launching app' && node dist/main.js",
     "restartPolicyType": "ON_FAILURE"
   }
 }
