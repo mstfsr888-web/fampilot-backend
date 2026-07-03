@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { suggestOwner } from '../common/assignment';
+import { connection as redis } from '../queue';
 
 const MODEL = () => process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 const DEFAULT_OFFSET: Record<string, number> = { school: 1440, health: 1440, activity: 120, social: 120, other: 120 };
@@ -8,6 +9,23 @@ const DEFAULT_OFFSET: Record<string, number> = { school: 1440, health: 1440, act
 @Injectable()
 export class AiService {
   constructor(private prisma: PrismaService) {}
+
+  private freeLimit() { return Number(process.env.AI_FREE_LIMIT || 10); }
+
+  // Per-family monthly counter in Redis. FAIL OPEN if Redis is down so AI never
+  // breaks because of the counter itself.
+  private async checkQuota(familyId: string): Promise<{ allowed: boolean; used: number; limit: number }> {
+    const limit = this.freeLimit();
+    try {
+      const key = `ai:used:${familyId}:${new Date().toISOString().slice(0, 7)}`;
+      const used = await redis.incr(key);
+      if (used === 1) await redis.expire(key, 60 * 60 * 24 * 40);
+      if (used > limit) { await redis.decr(key); return { allowed: false, used: limit, limit }; }
+      return { allowed: true, used, limit };
+    } catch {
+      return { allowed: true, used: 0, limit };
+    }
+  }
 
   private async callAnthropic(system: string, messages: any[]): Promise<string> {
     const key = process.env.ANTHROPIC_API_KEY;
@@ -24,7 +42,9 @@ export class AiService {
 
   // ---- Capture: messy text OR a screenshot -> structured draft (event|task), not persisted ----
   // image (optional): { data: base64, mediaType: 'image/jpeg'|'image/png' }
-  async capture(familyId: string, text?: string, image?: { data: string; mediaType?: string }) {
+  async capture(familyId: string, text?: string, image?: { data: string; mediaType?: string }, lang?: string) {
+    const quota = await this.checkQuota(familyId);
+    if (!quota.allowed) return { is_event: false, reason: 'quota', used: quota.used, limit: quota.limit };
     const fam = await this.prisma.family.findUnique({ where: { id: familyId }, include: { children: true, users: true } });
     const today = new Date();
     const kids = fam.children.map((c) => `${c.name}=${c.id}`).join(', ') || 'none';
@@ -34,6 +54,7 @@ Today is ${today.toDateString()}. Timezone ${fam.timezone}. Children: ${kids}. P
 Decide kind: "event" if there is a specific date/time or it is an appointment/activity; "task" if it is a to-do/errand with no fixed time.
 Resolve relative dates to ISO using today. For an event set start_iso, all_day and event_type (school|health|activity|social|other). For a task set due_iso (may be null).
 Match a child name to its id else null. confidence high|medium|low. If nothing actionable, is_event=false.
+Write "title" in ${lang || 'English'} - translate it if the source is in another language; keep proper names as-is.
 Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_type,child_id,reminder_offset_min,confidence`;
 
     let draft: any;
@@ -67,6 +88,7 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
     const s = await suggestOwner(this.prisma, familyId, { type: draft.event_type, childId: draft.child_id, start: draft.start_iso ? new Date(draft.start_iso) : null });
     draft.suggested_owner_id = s.ownerId;
     draft.suggested_owner_reason = s.reason;
+    draft._usage = { used: quota.used, limit: quota.limit };
     return draft;
   }
 
