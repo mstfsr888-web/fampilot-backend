@@ -11,8 +11,8 @@ export class AiController {
   constructor(private ai: AiService, private events: EventsService, private tasks: TasksService) {}
 
   @Post('ai/capture')
-  capture(@CurrentUser() u, @Body() body: { text?: string; image?: { data: string; mediaType?: string } }) {
-    return this.ai.capture(u.familyId, body.text, body.image);
+  capture(@CurrentUser() u, @Body() body: { text?: string; image?: { data: string; mediaType?: string }; lang?: string }) {
+    return this.ai.capture(u.familyId, body.text, body.image, body.lang);
   }
 
   @Post('ai/suggest-assignee')
