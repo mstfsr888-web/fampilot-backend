@@ -54,8 +54,9 @@ Today is ${today.toDateString()}. Timezone ${fam.timezone}. Children: ${kids}. P
 Decide kind: "event" if there is a specific date/time or it is an appointment/activity; "task" if it is a to-do/errand with no fixed time.
 Resolve relative dates to ISO using today. For an event set start_iso, all_day and event_type (school|health|activity|social|other). For a task set due_iso (may be null).
 Match a child name to its id else null. confidence high|medium|low. If nothing actionable, is_event=false.
+If the item repeats (e.g. "every day", "every morning", "her gün", "cada dia", "every Monday") set recur to "daily" or "weekly", else "none".
 Write "title" in ${lang || 'English'} - translate it if the source is in another language; keep proper names as-is.
-Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_type,child_id,reminder_offset_min,confidence`;
+Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_type,child_id,reminder_offset_min,recur,confidence`;
 
     let draft: any;
     try {
@@ -74,6 +75,7 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
       // No local OCR: if it was an image and the model is unavailable, say so.
       if (image) return { is_event: false, reason: 'vision_unavailable' };
       draft = this.localCapture(text || '', fam);
+      draft._local = true;
     }
 
     if (draft.is_event === false) return { is_event: false };
@@ -131,9 +133,14 @@ Actions: {"type":"create_event","title","start_iso","all_day":bool,"event_type",
     if (!date) date = new Date(today);
     date.setHours(allDay ? 9 : hour, min, 0, 0);
     const child = fam.children.find((c: any) => m.includes(c.name.toLowerCase()));
+    let recur: string = 'none';
+    if (/every week|weekly|her hafta|cada semana|chaque semaine|toda semana/.test(m)) recur = 'weekly';
+    else if (/every (day|morning|night|evening)|each (day|morning)|daily|her (g\u00fcn|sabah|ak\u015fam)|cada d\u00eda|todos os dias|chaque jour/.test(m)) recur = 'daily';
+    else if (/\bevery\b|\bher\b|cada|chaque/.test(m) && days.some((d) => m.includes(d))) recur = 'weekly';
     return {
       is_event: true,
       kind: 'event',
+      recur,
       title: text.split(/[\n.!?]/)[0].slice(0, 60),
       start_iso: date.toISOString(),
       all_day: allDay,
