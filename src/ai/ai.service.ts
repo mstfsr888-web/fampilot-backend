@@ -106,9 +106,15 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
       orderBy: { startTime: 'asc' }, take: 40, include: { owner: true },
     });
     const tks = await this.prisma.task.findMany({ where: { familyId, NOT: { status: 'done' } }, take: 20, include: { assignee: true } });
+    const shop = await this.prisma.listItem.findMany({ where: { familyId, list: 'shopping' }, orderBy: { createdAt: 'asc' }, take: 60 });
+    const weekEnd = new Date(today.getTime() + 8 * 864e5);
+    const meals = await this.prisma.meal.findMany({ where: { familyId, date: { gte: new Date(today.getTime() - 864e5), lt: weekEnd } }, orderBy: { date: 'asc' } });
     const fmt = (d: Date) => d.toLocaleString('en-GB', { timeZone: fam.timezone, weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
     const evStr = evs.map((e) => `${e.title}|${fmt(e.startTime)}${e.allDay ? '|allday' : ''}${e.recur !== 'none' ? '|' + e.recur : ''}${e.owner ? '|' + e.owner.name : ''}`).join('; ') || 'none';
     const tkStr = tks.map((x) => x.title + (x.dueDate ? '|due ' + x.dueDate.toISOString().slice(0, 10) : '') + (x.assignee ? '|' + x.assignee.name : '')).join('; ') || 'none';
+    const shopStr = shop.map((x) => x.title + (x.done ? '|done' : '')).join('; ') || 'empty';
+    const dayName = (d: Date) => d.toLocaleDateString('en-GB', { timeZone: fam.timezone, weekday: 'short', day: '2-digit', month: 'short' });
+    const mealStr = meals.map((m) => `${dayName(m.date)}:${m.title}`).join('; ') || 'none';
     const parents = fam.users.map((u) => `${u.name}=${u.id}`).join(', ');
     const kids = fam.children.map((c) => `${c.name}=${c.id}`).join(', ') || 'none';
     const todayStr = today.toLocaleDateString('en-GB', { timeZone: fam.timezone, weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
@@ -116,11 +122,18 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
 Parents: ${parents}. Children: ${kids}.
 Calendar (next 60 days): ${evStr}
 Open tasks: ${tkStr}
+Shopping list: ${shopStr}
+Meal plan (this week): ${mealStr}
 Answer schedule questions ONLY from that data. Items marked daily/weekly repeat - project them onto the asked period. If nothing matches the asked period, say nothing is scheduled for it.
 Answer the SPECIFIC question: "when is X" -> give X's weekday, date and time (24h), nothing else. "what time do we pick up" -> find the pickup item and give its time. Only list the full schedule when the user asks for an overview. Use the exact item titles.
 Return ONLY minified JSON {"reply":"...","actions":[...]}.
 Actions: {"type":"create_event","title","start_iso","all_day":bool,"event_type","child_id":null}
- | {"type":"create_task","title","due_iso":null} | {"type":"navigate","target":"calendar|tasks|home"}. Reply under 80 words.`;
+ | {"type":"create_task","title","due_iso":null}
+ | {"type":"add_shop_item","title"} (one action per item; "add milk and bread" -> two actions)
+ | {"type":"check_shop_item","title"} (mark bought) | {"type":"remove_shop_item","title"}
+ | {"type":"set_meal","date_iso","title"} (dinner for that day; empty title clears it)
+ | {"type":"navigate","target":"calendar|tasks|home"}.
+Shopping requests ("add X to the list", "we bought X", "listeye X ekle", "X aldık") -> use shop actions. Meal requests ("Tuesday dinner is pasta", "salı akşamı makarna") -> set_meal with that day's date. When asked "what should I buy" or "what's for dinner", answer from the data above. Reply under 80 words.`;
     try {
       const raw = await this.callAnthropic(system, messages);
       return JSON.parse(raw.replace(/```json/gi, '').replace(/```/g, '').trim());
