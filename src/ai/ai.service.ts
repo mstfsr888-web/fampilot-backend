@@ -133,7 +133,8 @@ Actions: {"type":"create_event","title","start_iso","all_day":bool,"event_type",
  | {"type":"check_shop_item","title"} (mark bought) | {"type":"remove_shop_item","title"}
  | {"type":"set_meal","date_iso","title"} (dinner for that day; empty title clears it)
  | {"type":"navigate","target":"calendar|tasks|home"}.
-Shopping requests ("add X to the list", "we bought X", "listeye X ekle", "X aldık") -> use shop actions. Meal requests ("Tuesday dinner is pasta", "salı akşamı makarna") -> set_meal with that day's date. When asked "what should I buy" or "what's for dinner", answer from the data above. Reply under 80 words.`;
+Shopping requests ("add X to the list", "we bought X", "listeye X ekle", "X aldık") -> use shop actions. Meal requests ("Tuesday dinner is pasta", "salı akşamı makarna") -> set_meal with that day's date. When asked "what should I buy" or "what's for dinner", answer from the data above.
+MEAL CONFLICTS (be proactive): when you create an event that replaces cooking dinner at home - dinner out, restaurant, birthday dinner, or a trip/vacation spanning one or more days - ALSO emit set_meal for each affected day, setting a short label in the user's language such as "Eating out"/"Dışarıda" or "Trip"/"Tatil ✈️" (or the restaurant name). If the meal plan above already had something for that day, briefly mention in the reply that you replaced it (e.g. "Perşembe planındaki Makarna'yı 'Dışarıda' olarak güncelledim"). For a multi-day trip, one set_meal per day covered. Reply under 80 words.`;
     try {
       const raw = await this.callAnthropic(system, messages);
       return JSON.parse(raw.replace(/```json/gi, '').replace(/```/g, '').trim());
