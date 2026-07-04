@@ -28,6 +28,7 @@ export class AiController {
     const result = await this.ai.assistant(u.familyId, body.messages || [], body.lang);
     if (body.execute === false) return result;
     for (const a of result.actions || []) {
+      if (a.type === 'suggest') continue; // proposals execute client-side on tap
       if (a.type === 'create_event' && a.start_iso) {
         await this.events.create(u.familyId, u.userId, {
           title: a.title, start: a.start_iso, allDay: a.all_day, type: a.event_type, childId: a.child_id, source: 'assistant',
