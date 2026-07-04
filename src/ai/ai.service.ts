@@ -95,16 +95,32 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
   }
 
   // ---- Assistant chat: returns { reply, actions[] } ----
-  async assistant(familyId: string, messages: { role: string; content: string }[]) {
+  async assistant(familyId: string, messages: { role: string; content: string }[], lang?: string) {
+    const quota = await this.checkQuota(familyId);
+    if (!quota.allowed) return { reply: null, reason: 'quota', used: quota.used, limit: quota.limit, actions: [] };
     const fam = await this.prisma.family.findUnique({ where: { id: familyId }, include: { children: true, users: true } });
     const today = new Date();
+    const horizon = new Date(today.getTime() + 60 * 864e5);
+    const evs = await this.prisma.event.findMany({
+      where: { familyId, OR: [{ startTime: { gte: today, lt: horizon } }, { NOT: { recur: 'none' } }] },
+      orderBy: { startTime: 'asc' }, take: 40, include: { owner: true },
+    });
+    const tks = await this.prisma.task.findMany({ where: { familyId, NOT: { status: 'done' } }, take: 20, include: { assignee: true } });
+    const fmt = (d: Date) => d.toLocaleString('en-GB', { timeZone: fam.timezone, weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+    const evStr = evs.map((e) => `${e.title}|${fmt(e.startTime)}${e.allDay ? '|allday' : ''}${e.recur !== 'none' ? '|' + e.recur : ''}${e.owner ? '|' + e.owner.name : ''}`).join('; ') || 'none';
+    const tkStr = tks.map((x) => x.title + (x.dueDate ? '|due ' + x.dueDate.toISOString().slice(0, 10) : '') + (x.assignee ? '|' + x.assignee.name : '')).join('; ') || 'none';
     const parents = fam.users.map((u) => `${u.name}=${u.id}`).join(', ');
     const kids = fam.children.map((c) => `${c.name}=${c.id}`).join(', ') || 'none';
-    const system = `You are FamPilot. Reply in the user's language. Today ${today.toDateString()}, tz ${fam.timezone}.
+    const todayStr = today.toLocaleDateString('en-GB', { timeZone: fam.timezone, weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    const system = `You are FamPilot. Reply in ${lang || "the user's language"}. Today is ${todayStr} in ${fam.timezone}; all calendar times below are already local.
 Parents: ${parents}. Children: ${kids}.
+Calendar (next 60 days): ${evStr}
+Open tasks: ${tkStr}
+Answer schedule questions ONLY from that data. Items marked daily/weekly repeat - project them onto the asked period. If nothing matches the asked period, say nothing is scheduled for it.
+Answer the SPECIFIC question: "when is X" -> give X's weekday, date and time (24h), nothing else. "what time do we pick up" -> find the pickup item and give its time. Only list the full schedule when the user asks for an overview. Use the exact item titles.
 Return ONLY minified JSON {"reply":"...","actions":[...]}.
 Actions: {"type":"create_event","title","start_iso","all_day":bool,"event_type","child_id":null}
- | {"type":"create_task","title","due_iso":null} | {"type":"navigate","target":"calendar|tasks|home"}. Reply under 55 words.`;
+ | {"type":"create_task","title","due_iso":null} | {"type":"navigate","target":"calendar|tasks|home"}. Reply under 80 words.`;
     try {
       const raw = await this.callAnthropic(system, messages);
       return JSON.parse(raw.replace(/```json/gi, '').replace(/```/g, '').trim());
