@@ -7,6 +7,8 @@ import { FamiliesModule } from './families/families.module';
 import { InvitesModule } from './invites/invites.module';
 import { EventsModule } from './events/events.module';
 import { TasksModule } from './tasks/tasks.module';
+import { ListsModule } from './lists/lists.module';
+import { MealsModule } from './meals/meals.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { AiModule } from './ai/ai.module';
 import { HealthController } from './health.controller';
@@ -23,6 +25,8 @@ import { GmailModule } from './gmail/gmail.module';
     InvitesModule,
     EventsModule,
     TasksModule,
+    ListsModule,
+    MealsModule,
     RemindersModule,
     AiModule,
     GmailModule,

@@ -75,6 +75,8 @@ model Family {
   tasks      Task[]
   invites    Invite[]
   connectors Connector[]
+  listItems  ListItem[]
+  meals      Meal[]
 }
 
 model User {
@@ -215,4 +217,27 @@ model ProcessedEmail {
   createdAt DateTime @default(now())
 
   @@unique([familyId, messageId])
+}
+
+model ListItem {
+  id        String   @id
+  familyId  String
+  family    Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  list      String   @default("shopping")
+  title     String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([familyId, list])
+}
+
+model Meal {
+  id       String   @id
+  familyId String
+  family   Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  date     DateTime
+  slot     String   @default("dinner")
+  title    String
+
+  @@index([familyId, date])
 }
