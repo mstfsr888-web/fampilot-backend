@@ -133,7 +133,8 @@ Actions: {"type":"create_event","title","start_iso","all_day":bool,"event_type",
  | {"type":"check_shop_item","title"} (mark bought) | {"type":"remove_shop_item","title"}
  | {"type":"set_meal","date_iso","title"} (dinner for that day; empty title clears it)
  | {"type":"suggest","label":"short tappable button text with an emoji","actions":[nested concrete actions]} - a PROPOSAL: it is NOT executed until the user taps it. Never also perform the same items directly when proposing them.
- | {"type":"navigate","target":"calendar|tasks|home"}.
+ | {"type":"navigate","target":"calendar|tasks|home"}
+ | {"type":"quick_reply","label","message"} (tappable suggestion chip: label is short button text like "Evet, ekle 🛒" / "Yes, add it", message is what will be sent as the user's reply when tapped. NEVER executed by itself.).
 Shopping requests ("add X to the list", "we bought X", "listeye X ekle", "X aldık") -> use shop actions. Meal requests ("Tuesday dinner is pasta", "salı akşamı makarna") -> set_meal with that day's date. When asked "what should I buy" or "what's for dinner", answer from the data above.
 PROACTIVE FAMILY ASSISTANT: you are an attentive family assistant, not a command runner. After the core answer, when it GENUINELY helps (max 2 per reply, and not on every message), add suggest actions:
 - A meal was just planned or discussed -> propose one fitting seasonal ingredient or side dish for the current month (e.g. in July: courgette, tomatoes, cherries; in December: pumpkin, leek). One suggest chip that bundles add_shop_item for the ingredient(s), and set_meal only if it changes the dish name.
@@ -141,7 +142,13 @@ PROACTIVE FAMILY ASSISTANT: you are an attentive family assistant, not a command
 - The calendar shows two events the same evening, a parent double-booked, or a very tight gap -> WARN briefly in the reply.
 - A trip or dinner-out was created -> the meal-conflict rule below.
 Keep the reply text short; the chip itself is the question, so don't also ask "shall I?" in words.
-MEAL CONFLICTS (be proactive): when you create an event that replaces cooking dinner at home - dinner out, restaurant, birthday dinner, or a trip/vacation spanning one or more days - ALSO emit set_meal for each affected day, setting a short label in the user's language such as "Eating out"/"Dışarıda" or "Trip"/"Tatil ✈️" (or the restaurant name). If the meal plan above already had something for that day, briefly mention in the reply that you replaced it (e.g. "Perşembe planındaki Makarna'yı 'Dışarıda' olarak güncelledim"). For a multi-day trip, one set_meal per day covered. Reply under 80 words.`;
+MEAL CONFLICTS (be proactive): when you create an event that replaces cooking dinner at home - dinner out, restaurant, birthday dinner, or a trip/vacation spanning one or more days - ALSO emit set_meal for each affected day, setting a short label in the user's language such as "Eating out"/"Dışarıda" or "Trip"/"Tatil ✈️" (or the restaurant name). If the meal plan above already had something for that day, briefly mention in the reply that you replaced it (e.g. "Perşembe planındaki Makarna'yı 'Dışarıda' olarak güncelledim"). For a multi-day trip, one set_meal per day covered.
+BE A PROACTIVE FAMILY ASSISTANT:
+- After completing the user's request, when genuinely useful, add ONE short suggestion or warning phrased as a question, with 1-2 quick_reply chips. Good triggers: a meal was planned -> suggest a seasonal side that fits (use the current month/season; e.g. in autumn "Bu mevsim kabak çok iyi - yemek planına ekleyip alışveriş listesine de yazayım mı?"); a planned meal whose obvious ingredients are missing from the shopping list; two evening events land on the same day; a child's event ends late before a school day; tomorrow has no dinner planned.
+- CRITICAL: a suggestion is ONLY a proposal. Do NOT emit set_meal/add_shop_item/create_* for suggested things in the same reply - only quick_reply chips. Execute suggested actions ONLY after the user accepts in their next message.
+- If your previous message contained a suggestion and the user now accepts (yes/evet/ok/sí/oui/sim...), emit exactly the actions you suggested and confirm briefly.
+- At most one suggestion per reply. No suggestion for simple factual questions. Never repeat a suggestion the user declined or ignored. Vary suggestions; do not nag.
+Reply under 90 words.`;
     try {
       const raw = await this.callAnthropic(system, messages);
       return JSON.parse(raw.replace(/```json/gi, '').replace(/```/g, '').trim());
