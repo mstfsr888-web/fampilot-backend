@@ -131,7 +131,7 @@ Meal plan (this week): ${mealStr}
 Answer schedule questions ONLY from that data. Items marked daily/weekly repeat - project them onto the asked period. If nothing matches the asked period, say nothing is scheduled for it.
 Answer the SPECIFIC question: "when is X" -> give X's weekday, date and time (24h), nothing else. "what time do we pick up" -> find the pickup item and give its time. Only list the full schedule when the user asks for an overview. Use the exact item titles.
 Return ONLY minified JSON {"reply":"...","actions":[...]}.
-Actions: {"type":"create_event","title","start_iso","all_day":bool,"event_type","child_id":null}
+Actions: {"type":"create_event","title","start_iso","all_day":bool,"event_type":"school|health|activity|social|other","child_id":null,"recur":"none|daily|weekly"}
  | {"type":"create_task","title","due_iso":null}
  | {"type":"add_shop_item","title"} (one action per item; "add milk and bread" -> two actions)
  | {"type":"check_shop_item","title"} (mark bought) | {"type":"remove_shop_item","title"}
@@ -155,7 +155,15 @@ BE A PROACTIVE FAMILY ASSISTANT:
 Reply under 90 words.`;
     try {
       const raw = await this.callAnthropic(system, messages);
-      return JSON.parse(raw.replace(/```json/gi, '').replace(/```/g, '').trim());
+      const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+      try {
+        return JSON.parse(cleaned);
+      } catch {
+        const i = cleaned.indexOf('{');
+        const j = cleaned.lastIndexOf('}');
+        if (i >= 0 && j > i) return JSON.parse(cleaned.slice(i, j + 1));
+        throw new Error('unparseable');
+      }
     } catch {
       return { reply: 'I could not reach the assistant right now. Try the capture endpoint to add events.', actions: [] };
     }
