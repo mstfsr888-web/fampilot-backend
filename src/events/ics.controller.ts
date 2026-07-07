@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Header, Query, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { JwtGuard } from '../common/jwt.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
@@ -25,14 +25,14 @@ export class IcsController {
   @Get('feed.ics')
   @Header('Content-Type', 'text/calendar; charset=utf-8')
   @Header('Cache-Control', 'private, max-age=300')
-  async feed(@Query('t') t: string, @Res() res) {
+  async feed(@Query('t') t: string): Promise<string> {
     let familyId: string;
     try {
       const p: any = jwt.verify(t || '', secret);
       if (p.kind !== 'ics' || !p.familyId) throw new Error('bad');
       familyId = p.familyId;
     } catch {
-      return res.status(401).send('invalid token');
+      throw new UnauthorizedException('invalid token');
     }
     const since = new Date(Date.now() - 90 * 24 * 3600 * 1000);
     const evs = await this.prisma.event.findMany({
@@ -60,6 +60,6 @@ export class IcsController {
       lines.push('END:VEVENT');
     }
     lines.push('END:VCALENDAR');
-    return res.send(lines.join('\r\n'));
+    return lines.join('\r\n');
   }
 }
