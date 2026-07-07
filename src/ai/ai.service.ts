@@ -106,9 +106,13 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
       orderBy: { startTime: 'asc' }, take: 40, include: { owner: true },
     });
     const tks = await this.prisma.task.findMany({ where: { familyId, NOT: { status: 'done' } }, take: 20, include: { assignee: true } });
-    const shop = await this.prisma.listItem.findMany({ where: { familyId, list: 'shopping' }, orderBy: { createdAt: 'asc' }, take: 60 });
-    const weekEnd = new Date(today.getTime() + 8 * 864e5);
-    const meals = await this.prisma.meal.findMany({ where: { familyId, date: { gte: new Date(today.getTime() - 864e5), lt: weekEnd } }, orderBy: { date: 'asc' } });
+    let shop: any[] = [];
+    let meals: any[] = [];
+    try {
+      shop = await this.prisma.listItem.findMany({ where: { familyId, list: 'shopping' }, orderBy: { createdAt: 'asc' }, take: 60 });
+      const weekEnd = new Date(today.getTime() + 8 * 864e5);
+      meals = await this.prisma.meal.findMany({ where: { familyId, date: { gte: new Date(today.getTime() - 864e5), lt: weekEnd } }, orderBy: { date: 'asc' } });
+    } catch (e) { /* tables may not exist yet */ }
     const fmt = (d: Date) => d.toLocaleString('en-GB', { timeZone: fam.timezone, weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
     const evStr = evs.map((e) => `${e.title}|${fmt(e.startTime)}${e.allDay ? '|allday' : ''}${e.recur !== 'none' ? '|' + e.recur : ''}${e.owner ? '|' + e.owner.name : ''}`).join('; ') || 'none';
     const tkStr = tks.map((x) => x.title + (x.dueDate ? '|due ' + x.dueDate.toISOString().slice(0, 10) : '') + (x.assignee ? '|' + x.assignee.name : '')).join('; ') || 'none';

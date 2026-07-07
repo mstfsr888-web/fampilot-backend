@@ -14,4 +14,4 @@ ENV CHECKPOINT_DISABLE=1
 ENV PRISMA_HIDE_UPDATE_MESSAGE=1
 EXPOSE 3000
 
-CMD ["node", "dist/main.js"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/main.js"]
