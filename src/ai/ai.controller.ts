@@ -41,6 +41,8 @@ export class AiController {
             validChildIds = new Set(kids.map((k: any) => k.id));
           }
           const recur = a.recur === 'daily' || a.recur === 'weekly' ? a.recur : 'none';
+          const dup = await this.prisma.event.findFirst({ where: { familyId: u.familyId, title: { equals: String(a.title || ''), mode: 'insensitive' }, startTime: start, status: { not: 'cancelled' } } });
+          if (dup) continue;
           await this.events.create(u.familyId, u.userId, {
             title: String(a.title || 'Event').slice(0, 200),
             start: start.toISOString(),
@@ -62,6 +64,19 @@ export class AiController {
             if (a.type === 'remove_shop_item') await this.lists.remove(u.familyId, hit.id);
             else await this.lists.update(u.familyId, hit.id, { done: true });
           }
+        } else if (a.type === 'update_event' && a.title) {
+          const ev = await this.findEventByTitle(u.familyId, a.title, a.date_iso);
+          if (ev) {
+            const data: any = {};
+            if (a.new_title) data.title = String(a.new_title).slice(0, 200);
+            if (a.start_iso) { const s = new Date(a.start_iso); if (!isNaN(s.getTime())) data.startTime = s; }
+            if (a.all_day !== undefined) data.allDay = !!a.all_day;
+            if (a.recur === 'daily' || a.recur === 'weekly' || a.recur === 'none') data.recur = a.recur;
+            if (Object.keys(data).length) await this.prisma.event.update({ where: { id: ev.id }, data });
+          }
+        } else if (a.type === 'delete_event' && a.title) {
+          const ev = await this.findEventByTitle(u.familyId, a.title, a.date_iso);
+          if (ev) await this.prisma.event.update({ where: { id: ev.id }, data: { status: 'cancelled' } });
         } else if (a.type === 'set_meal' && a.date_iso) {
           const d = new Date(a.date_iso);
           if (!isNaN(d.getTime())) await this.meals.upsert(u.familyId, { date: d.toISOString(), slot: 'dinner', title: a.title || '' });
@@ -72,5 +87,22 @@ export class AiController {
       }
     }
     return result;
+  }
+
+  private async findEventByTitle(familyId: string, title: string, dateIso?: string) {
+    const since = new Date(Date.now() - 864e5);
+    const evs = await this.prisma.event.findMany({ where: { familyId, status: { not: 'cancelled' }, startTime: { gte: since } }, orderBy: { startTime: 'asc' }, take: 200 });
+    const q = String(title).toLowerCase().trim();
+    let pool = evs.filter((e) => e.title.toLowerCase() === q);
+    if (!pool.length) pool = evs.filter((e) => e.title.toLowerCase().includes(q) || q.includes(e.title.toLowerCase()));
+    if (!pool.length) return null;
+    if (dateIso) {
+      const d = new Date(dateIso);
+      if (!isNaN(d.getTime())) {
+        const sameDay = pool.filter((e) => e.startTime.toDateString() === d.toDateString());
+        if (sameDay.length) return sameDay[0];
+      }
+    }
+    return pool[0];
   }
 }
