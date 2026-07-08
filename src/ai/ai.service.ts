@@ -124,7 +124,6 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
     } catch (e) { /* tables may not exist yet */ }
     const off = tzOffset(fam.timezone);
     const fmt = (d: Date) => d.toLocaleString('en-GB', { timeZone: fam.timezone, weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
-    const off = tzOffset(fam.timezone);
     const evStr = evs.map((e) => `${e.title}|${fmt(e.startTime)}${e.allDay ? '|allday' : ''}${e.recur !== 'none' ? '|' + e.recur : ''}${e.owner ? '|' + e.owner.name : ''}`).join('; ') || 'none';
     const tkStr = tks.map((x) => x.title + (x.dueDate ? '|due ' + x.dueDate.toISOString().slice(0, 10) : '') + (x.assignee ? '|' + x.assignee.name : '')).join('; ') || 'none';
     const shopStr = shop.map((x) => x.title + (x.done ? '|done' : '')).join('; ') || 'empty';
