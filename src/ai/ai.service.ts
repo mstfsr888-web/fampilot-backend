@@ -41,7 +41,7 @@ export class AiService {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: MODEL(), max_tokens: 1024, system, messages }),
+      body: JSON.stringify({ model: MODEL(), max_tokens: 2048, system, messages }),
     });
     if (!res.ok) throw new Error('anthropic ' + res.status);
     const data: any = await res.json();
@@ -166,7 +166,7 @@ BE A PROACTIVE FAMILY ASSISTANT:
 - CRITICAL: package every proposal as ONE "suggest" action whose nested "actions" contain the concrete steps (e.g. seasonal veg -> nested add_shop_item + set_meal appending it to that day's meal title). NEVER emit those nested actions at the top level of the same reply - top-level actions are executed immediately, suggest chips run only when tapped.
 - If the user replies accepting a suggestion in words (evet/yes/ok...) instead of tapping, then emit the concrete actions at top level and confirm briefly.
 - At most one suggestion per reply. No suggestion for simple factual questions. Never repeat a suggestion the user declined or ignored. Vary suggestions; do not nag.
-Reply under 90 words.`;
+Reply in PLAIN TEXT - no markdown, no ** or ##; use simple line breaks and the • character for lists. Reply under 90 words.`;
     try {
       const raw = await this.callAnthropic(system, messages);
       const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -179,7 +179,16 @@ Reply under 90 words.`;
         throw new Error('unparseable');
       }
     } catch {
-      return { reply: 'I could not reach the assistant right now. Try the capture endpoint to add events.', actions: [] };
+      // one retry - transient API hiccups and truncations are common
+      try {
+        const raw2 = await this.callAnthropic(system, messages);
+        const c2 = raw2.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const i2 = c2.indexOf('{');
+        const j2 = c2.lastIndexOf('}');
+        return JSON.parse(i2 >= 0 && j2 > i2 ? c2.slice(i2, j2 + 1) : c2);
+      } catch (e2) {
+        return { reply: null, reason: 'ai_error', actions: [] };
+      }
     }
   }
 
