@@ -1,12 +1,14 @@
 // force rebuild 2026-07-02-v7 (deploy railway.json v6 startCommand)
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
+import { json } from 'express';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   console.log('[boot] 1/4 creating Nest application...');
   const app = await NestFactory.create(AppModule);
+  app.use(json({ limit: '12mb' }));
 
   console.log('[boot] 2/4 app created, applying config...');
   app.setGlobalPrefix('api/v1');

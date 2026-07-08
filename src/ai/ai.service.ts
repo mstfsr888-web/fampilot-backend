@@ -61,7 +61,8 @@ export class AiService {
     const system = `Read a family message (text or a screenshot of an email/WhatsApp/note, any language) and extract ONE actionable item.
 Today is ${today.toDateString()}. Timezone ${fam.timezone}. Children: ${kids}. Parents: ${parents}.
 Decide kind: "event" if there is a specific date/time or it is an appointment/activity; "task" if it is a to-do/errand with no fixed time.
-Resolve relative dates to ISO using today. CRITICAL: all *_iso times are LOCAL to the family timezone - always append the offset ${off} (e.g. 2026-07-14T16:00:00${off}); never use Z/UTC. For an event set start_iso, all_day and event_type (school|health|activity|social|other). For a task set due_iso (may be null).
+Resolve relative dates to ISO using today. CRITICAL: all *_iso times are LOCAL to the family timezone - always append the offset ${off} (e.g. 2026-07-14T16:00:00${off}); never use Z/UTC.
+MULTIPLE ITEMS: if the input contains SEVERAL separate actionable items (a dated schedule, a list of deliveries/appointments), return {"is_event":true,"multi":true,"items":[{kind,title,start_iso,due_iso,all_day,event_type,child_id,reminder_offset_min,recur,confidence}, ...]} with one entry per item (max 12), each title short and self-contained (translate to the requested language). Only use the flat single-item schema when there is exactly one item. For an event set start_iso, all_day and event_type (school|health|activity|social|other). For a task set due_iso (may be null).
 Match a child name to its id else null. confidence high|medium|low. If nothing actionable, is_event=false.
 If the item repeats (e.g. "every day", "every morning", "her gün", "cada dia", "every Monday") set recur to "daily" or "weekly", else "none".
 Write "title" in ${lang || 'English'} - translate it if the source is in another language; keep proper names as-is.
