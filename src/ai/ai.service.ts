@@ -6,6 +6,14 @@ import { connection as redis } from '../queue';
 const MODEL = () => process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 const DEFAULT_OFFSET: Record<string, number> = { school: 1440, health: 1440, activity: 120, social: 120, other: 120 };
 
+const tzOffset = (tz: string) => {
+  try {
+    const s = new Date().toLocaleString('en-US', { timeZone: tz, timeZoneName: 'longOffset' });
+    const m = s.match(/GMT([+-]\d{2}:\d{2})/);
+    return m ? m[1] : '+00:00';
+  } catch { return '+00:00'; }
+};
+
 @Injectable()
 export class AiService {
   constructor(private prisma: PrismaService) {}
@@ -47,12 +55,13 @@ export class AiService {
     if (!quota.allowed) return { is_event: false, reason: 'quota', used: quota.used, limit: quota.limit };
     const fam = await this.prisma.family.findUnique({ where: { id: familyId }, include: { children: true, users: true } });
     const today = new Date();
+    const off = tzOffset(fam.timezone);
     const kids = fam.children.map((c) => `${c.name}=${c.id}`).join(', ') || 'none';
     const parents = fam.users.map((u) => `${u.name}=${u.id}`).join(', ');
     const system = `Read a family message (text or a screenshot of an email/WhatsApp/note, any language) and extract ONE actionable item.
 Today is ${today.toDateString()}. Timezone ${fam.timezone}. Children: ${kids}. Parents: ${parents}.
 Decide kind: "event" if there is a specific date/time or it is an appointment/activity; "task" if it is a to-do/errand with no fixed time.
-Resolve relative dates to ISO using today. For an event set start_iso, all_day and event_type (school|health|activity|social|other). For a task set due_iso (may be null).
+Resolve relative dates to ISO using today. CRITICAL: all *_iso times are LOCAL to the family timezone - always append the offset ${off} (e.g. 2026-07-14T16:00:00${off}); never use Z/UTC. For an event set start_iso, all_day and event_type (school|health|activity|social|other). For a task set due_iso (may be null).
 Match a child name to its id else null. confidence high|medium|low. If nothing actionable, is_event=false.
 If the item repeats (e.g. "every day", "every morning", "her gün", "cada dia", "every Monday") set recur to "daily" or "weekly", else "none".
 Write "title" in ${lang || 'English'} - translate it if the source is in another language; keep proper names as-is.
@@ -113,7 +122,9 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
       const weekEnd = new Date(today.getTime() + 8 * 864e5);
       meals = await this.prisma.meal.findMany({ where: { familyId, date: { gte: new Date(today.getTime() - 864e5), lt: weekEnd } }, orderBy: { date: 'asc' } });
     } catch (e) { /* tables may not exist yet */ }
+    const off = tzOffset(fam.timezone);
     const fmt = (d: Date) => d.toLocaleString('en-GB', { timeZone: fam.timezone, weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+    const off = tzOffset(fam.timezone);
     const evStr = evs.map((e) => `${e.title}|${fmt(e.startTime)}${e.allDay ? '|allday' : ''}${e.recur !== 'none' ? '|' + e.recur : ''}${e.owner ? '|' + e.owner.name : ''}`).join('; ') || 'none';
     const tkStr = tks.map((x) => x.title + (x.dueDate ? '|due ' + x.dueDate.toISOString().slice(0, 10) : '') + (x.assignee ? '|' + x.assignee.name : '')).join('; ') || 'none';
     const shopStr = shop.map((x) => x.title + (x.done ? '|done' : '')).join('; ') || 'empty';
@@ -122,7 +133,7 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
     const parents = fam.users.map((u) => `${u.name}=${u.id}`).join(', ');
     const kids = fam.children.map((c) => `${c.name}=${c.id}`).join(', ') || 'none';
     const todayStr = today.toLocaleDateString('en-GB', { timeZone: fam.timezone, weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-    const system = `You are FamPilot. Reply in ${lang || "the user's language"}. Today is ${todayStr} in ${fam.timezone}; all calendar times below are already local.
+    const system = `You are FamPilot. Reply in ${lang || "the user's language"}. Today is ${todayStr} in ${fam.timezone}; all calendar times below are already local. When emitting *_iso fields, times are LOCAL - always append the offset ${off} (e.g. 16:00 -> T16:00:00${off}); never use Z/UTC.
 Parents: ${parents}. Children: ${kids}.
 Calendar (next 60 days): ${evStr}
 Open tasks: ${tkStr}
