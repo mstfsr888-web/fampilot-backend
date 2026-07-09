@@ -134,7 +134,7 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
   }
 
   // ---- Assistant chat: returns { reply, actions[] } ----
-  async assistant(familyId: string, messages: { role: string; content: string }[], lang?: string) {
+  async assistant(familyId: string, messages: { role: string; content: string }[], lang?: string, members?: any[], speakerId?: string) {
     const quota = await this.checkQuota(familyId);
     if (!quota.allowed) return { reply: null, reason: 'quota', used: quota.used, limit: quota.limit, actions: [] };
     const fam = await this.prisma.family.findUnique({ where: { id: familyId }, include: { children: true, users: true } });
@@ -159,11 +159,17 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
     const shopStr = shop.map((x) => x.title + (x.done ? '|done' : '')).join('; ') || 'empty';
     const dayName = (d: Date) => d.toLocaleDateString('en-GB', { timeZone: fam.timezone, weekday: 'short', day: '2-digit', month: 'short' });
     const mealStr = meals.map((m) => `${dayName(m.date)}:${m.title}`).join('; ') || 'none';
-    const parents = fam.users.map((u) => `${u.name}=${u.id}`).join(', ');
+    const regParents = (fam.users || []).map((u: any) => u.name).filter(Boolean);
+    const extraParents = (members || []).filter((x: any) => x && x.name && x.role !== 'child').map((x: any) => String(x.name).slice(0, 40));
+    const allParents = Array.from(new Set([...regParents, ...extraParents]));
+    const parents = allParents.join(', ') || 'unknown';
+    const speaker = (fam.users || []).find((u: any) => u.id === speakerId)?.name || regParents[0] || 'the user';
+    const others = allParents.filter((n) => n !== speaker);
     const kids = fam.children.map((c) => `${c.name}=${c.id}`).join(', ') || 'none';
     const todayStr = today.toLocaleDateString('en-GB', { timeZone: fam.timezone, weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
     const system = `You are FamPilot. Reply in ${lang || "the user's language"}. Today is ${todayStr} in ${fam.timezone}; all calendar times below are already local. When emitting *_iso fields, times are LOCAL - always append the offset ${off} (e.g. 16:00 -> T16:00:00${off}); never use Z/UTC.
 Parents: ${parents}. Children: ${kids}.
+You are talking to ${speaker}. Spouse words ("eşim", "my wife/husband", "mi esposa/o", "ma femme/mon mari", "minha esposa/meu marido") mean the OTHER parent${others.length ? ` (${others.join(', ')})` : ''} - NEVER the speaker. All parents listed above ARE family members; do not claim they are unregistered. Events with no owner may belong to either parent.
 Calendar (next 60 days): ${evStr}
 Open tasks: ${tkStr}
 Shopping list: ${shopStr}

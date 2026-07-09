@@ -25,8 +25,8 @@ export class AiController {
 
   // Runs the assistant and executes any create actions server-side.
   @Post('assistant/chat')
-  async chat(@CurrentUser() u, @Body() body: { messages: any[]; lang?: string; execute?: boolean }) {
-    const result = await this.ai.assistant(u.familyId, body.messages || [], body.lang);
+  async chat(@CurrentUser() u, @Body() body: { messages: any[]; lang?: string; execute?: boolean; members?: any[] }) {
+    const result = await this.ai.assistant(u.familyId, body.messages || [], body.lang, body.members, u.userId);
     if (body.execute === false) return result;
     const EVENT_TYPES = ['school', 'health', 'activity', 'social', 'other'];
     let validChildIds: Set<string> | null = null;

@@ -16,6 +16,10 @@ export class TasksService {
 
   async create(familyId: string, body: any) {
     let assigneeId = body.assigneeId;
+    if (assigneeId) {
+      const u = await this.prisma.user.findFirst({ where: { id: assigneeId, familyId }, select: { id: true } });
+      if (!u) assigneeId = null;
+    }
     let suggested = false;
     let suggestedReason: string | undefined;
     if (assigneeId === undefined && body.autoAssign !== false) {

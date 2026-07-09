@@ -30,6 +30,10 @@ export class EventsService {
       ownerId = s.ownerId;
       suggestedReason = s.reason;
     }
+    if (ownerId) {
+      const u = await this.prisma.user.findFirst({ where: { id: ownerId, familyId }, select: { id: true } });
+      if (!u) ownerId = null; // locally-defined member not yet registered - keep the event syncable
+    }
     const event = await this.prisma.event.create({
       data: {
         id: newId('evt'),
