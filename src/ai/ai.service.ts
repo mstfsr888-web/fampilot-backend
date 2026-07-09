@@ -69,16 +69,16 @@ Write "title" in ${lang || 'English'} - translate it if the source is in another
 Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_type,child_id,reminder_offset_min,recur,confidence`;
 
     let draft: any;
-    try {
-      let content: any;
-      if (image && image.data) {
+    let content: any;
+    if (image && image.data) {
         content = [
           { type: 'image', source: { type: 'base64', media_type: image.mediaType || 'image/jpeg', data: image.data } },
           { type: 'text', text: text ? 'Extra note from user: ' + text : 'Extract the item from this screenshot.' },
         ];
-      } else {
-        content = text || '';
-      }
+    } else {
+      content = text || '';
+    }
+    try {
       const raw = await this.callAnthropic(system, [{ role: 'user', content }]);
       draft = this.extractJson(raw);
     } catch (e1) {
@@ -260,13 +260,12 @@ Reply in PLAIN TEXT - no markdown, no ** or ##; use simple line breaks and the â
       kind: 'event',
       recur,
       title: text.split(/[\n.!?]/)[0].slice(0, 60),
-      confidence: 'low',
       start_iso: date.toISOString(),
       all_day: allDay,
       event_type: 'other',
       child_id: child?.id || null,
       reminder_offset_min: 120,
-      confidence: 'medium',
+      confidence: 'low',
     };
   }
 }
