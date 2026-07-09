@@ -41,7 +41,7 @@ export class AiService {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: MODEL(), max_tokens: 2048, system, messages }),
+      body: JSON.stringify({ model: MODEL(), max_tokens: 3000, system, messages }),
     });
     if (!res.ok) throw new Error('anthropic ' + res.status);
     const data: any = await res.json();
@@ -80,7 +80,18 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
         content = text || '';
       }
       const raw = await this.callAnthropic(system, [{ role: 'user', content }]);
-      draft = JSON.parse(raw.replace(/```json/gi, '').replace(/```/g, '').trim());
+      draft = this.extractJson(raw);
+    } catch (e1) {
+      try {
+        const raw2 = await this.callAnthropic(system, [{ role: 'user', content }]);
+        draft = this.extractJson(raw2);
+      } catch (e2) {
+        console.error('[capture] parse failed twice', (e2 as any)?.message);
+        draft = null;
+      }
+    }
+    try {
+      if (!draft) throw new Error('no draft');
     } catch {
       // No local OCR: if it was an image and the model is unavailable, say so.
       if (image) return { is_event: false, reason: 'vision_unavailable' };
@@ -89,6 +100,24 @@ Return ONLY minified JSON: is_event,kind,title,start_iso,due_iso,all_day,event_t
     }
 
     if (draft.is_event === false) return { is_event: false };
+    if (draft.multi && Array.isArray(draft.items) && draft.items.length) {
+      const items = draft.items
+        .filter((it: any) => it && it.title)
+        .slice(0, 12)
+        .map((it: any) => {
+          const kind = it.kind === 'task' ? 'task' : (it.start_iso || !it.due_iso ? 'event' : 'task');
+          const iso = kind === 'task' ? (it.due_iso || it.start_iso) : it.start_iso;
+          const start = iso && !isNaN(new Date(iso).getTime()) ? new Date(iso).toISOString() : null;
+          return { is_event: true, kind, title: String(it.title).slice(0, 200), start_iso: start, due_iso: kind === 'task' ? start : null,
+                   all_day: !!it.all_day, event_type: it.event_type || 'other', child_id: it.child_id || null,
+                   recur: it.recur === 'daily' || it.recur === 'weekly' ? it.recur : null,
+                   reminder_offset_min: it.reminder_offset_min || DEFAULT_OFFSET[it.event_type] || 120,
+                   confidence: it.confidence || 'medium' };
+        });
+      if (items.length) return { is_event: true, multi: true, items, _usage: { used: quota.used, limit: quota.limit } };
+      return { is_event: false };
+    }
+    if (!draft.title) { if (image) return { is_event: false, reason: 'vision_unavailable' }; draft = this.localCapture(text || '', fam); draft._local = true; }
     draft.kind = draft.kind || (draft.start_iso ? 'event' : 'task');
     const dateIso = draft.kind === 'task' ? (draft.due_iso || draft.start_iso) : draft.start_iso;
     draft.start_iso = dateIso && !isNaN(new Date(dateIso).getTime()) ? new Date(dateIso).toISOString() : null;
@@ -199,6 +228,15 @@ Reply in PLAIN TEXT - no markdown, no ** or ##; use simple line breaks and the â
   }
 
   // Minimal offline fallback so the endpoint works without an API key.
+  private extractJson(raw: string): any {
+    const c = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+    try { return JSON.parse(c); } catch {
+      const i = c.indexOf('{'); const j = c.lastIndexOf('}');
+      if (i >= 0 && j > i) return JSON.parse(c.slice(i, j + 1));
+      throw new Error('unparseable');
+    }
+  }
+
   private localCapture(text: string, fam: any) {
     const m = text.toLowerCase();
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -222,6 +260,7 @@ Reply in PLAIN TEXT - no markdown, no ** or ##; use simple line breaks and the â
       kind: 'event',
       recur,
       title: text.split(/[\n.!?]/)[0].slice(0, 60),
+      confidence: 'low',
       start_iso: date.toISOString(),
       all_day: allDay,
       event_type: 'other',
